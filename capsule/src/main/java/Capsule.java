@@ -2527,19 +2527,42 @@ public class Capsule implements Runnable, InvocationHandler {
             if (!option.startsWith("-D") && !option.startsWith("-Xbootclasspath:"))
                 addJvmArg(option, jvmArgs);
         }
-        return new ArrayList<String>(jvmArgs.values());
+
+        ArrayList<String> args = new ArrayList<>(java9Options);
+        args.addAll(jvmArgs.values());
+        return args;
     }
+
+    private List<String> java9Options = new ArrayList<>();
 
     private List<String> buildJVMArgs() {
         final Map<String, String> jvmArgs = new LinkedHashMap<>();
 
-        for (String a : getAttribute(ATTR_JVM_ARGS)) {
+        Iterator<String> attributeIterator = getAttribute(ATTR_JVM_ARGS).iterator();
+        while (attributeIterator.hasNext()) {
+            String a = attributeIterator.next();
             a = a.trim();
-            if (!a.isEmpty() && !a.startsWith("-Xbootclasspath:") && !a.startsWith("-javaagent:"))
-                addJvmArg(toNativePath(expand(a)), jvmArgs);
+            if (!a.isEmpty()) {
+                if (isJava9Arg(a))
+                {
+                    if (attributeIterator.hasNext())
+                    {
+                        String value = attributeIterator.next();
+                        java9Options.add(a);
+                        java9Options.add(value);
+                    }
+                }
+                else if (!a.startsWith("-Xbootclasspath:") && !a.startsWith("-javaagent:"))
+                    addJvmArg(toNativePath(expand(a)), jvmArgs);
+            }
         }
 
         return new ArrayList<String>(jvmArgs.values());
+    }
+
+    private boolean isJava9Arg(String arg)
+    {
+        return new HashSet<>(Arrays.asList("--add-modules", "--add-opens", "--add-exports")).contains(arg);
     }
 
     private static void addJvmArg(String a, Map<String, String> args) {
